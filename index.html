@@ -94,28 +94,32 @@ function play(){
 }
 
 // 🔥 결과 생성 (iPhone 완전 안정)
-function showResult(){
+async function showResult(){
 
   if (!recordings.breath || !recordings.ambient || !recordings.personal) {
     alert("먼저 세 개의 소리를 기록하세요");
     return;
   }
 
-  const area = document.getElementById("resultArea");
+  // 👉 하나의 파일로 (간단히 첫 번째 사용)
+  const file = recordings.breath;
 
-  area.innerHTML = `
-    <p>기록이 생성되었습니다</p>
-    <audio controls id="finalAudio"></audio>
-    <p style="opacity:0.5; font-size:12px;">
-    길게 눌러 저장하세요
-    </p>
-  `;
+  // 🔥 Web Share API
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
 
-  // 첫번째 소리만 넣기 (안정성)
-  const audio = document.getElementById("finalAudio");
-  audio.src = URL.createObjectURL(recordings.breath);
+    try {
+      await navigator.share({
+        files: [file],
+        title: "trace",
+        text: "나의 기록"
+      });
+    } catch (err) {
+      console.log("공유 취소됨");
+    }
 
-  audio.play();
+  } else {
+    alert("이 기기에서는 공유 기능이 지원되지 않습니다");
+  }
 }
 
 // 📊 waveform
