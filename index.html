@@ -33,18 +33,34 @@ async function record(type) {
 
   mediaRecorder.ondataavailable = e => chunks.push(e.data);
 
+  let timeLeft = 8;
+
+  const status = document.getElementById("status");
+
   mediaRecorder.onstop = () => {
     recordings[type] = new Blob(chunks);
-    document.getElementById("status").innerText = type + " 녹음 완료";
+    status.innerText = type + " 녹음 완료";
   };
 
   mediaRecorder.start();
 
-  document.getElementById("status").innerText = type + " 녹음 중...";
+  status.innerText = type + " 녹음 중... (" + timeLeft + "초)";
 
+  // 🔥 카운트다운 표시
+  const interval = setInterval(() => {
+    timeLeft--;
+    status.innerText = type + " 녹음 중... (" + timeLeft + "초)";
+
+    if (timeLeft <= 0) {
+      clearInterval(interval);
+    }
+  }, 1000);
+
+  // 🔥 자동 종료
   setTimeout(() => {
     if (mediaRecorder.state === "recording") {
       mediaRecorder.stop();
+      clearInterval(interval);
     }
   }, 8000);
 }
