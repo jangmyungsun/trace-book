@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,9 +8,8 @@
 <body style="font-family:sans-serif; padding:30px;">
 
 <h2 id="title"></h2>
-
-<p id="guide" style="opacity:0.6;"></p>
-<p id="status" style="margin-top:10px; color:gray;"></p>
+<p id="guide"></p>
+<p id="status"></p>
 
 <button id="recordBtn">● record</button>
 
@@ -29,125 +28,137 @@ if (!/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
   document.body.innerHTML = "모바일에서만 사용 가능합니다.";
 }
 
-// 타입
-const urlParams = new URLSearchParams(window.location.search);
-const type = urlParams.get("type");
+// DB 생성
+let db;
+const request = indexedDB.open("traceDB", 1);
 
-// UI 요소
+request.onupgradeneeded = function(e) {
+  db = e.target.result;
+  db.createObjectStore("audio");
+};
+
+request.onsuccess = function(e) {
+  db = e.target.result;
+};
+
+// 타입
+const type = new URLSearchParams(location.search).get("type");
+
+// UI
 const title = document.getElementById("title");
 const guide = document.getElementById("guide");
 const status = document.getElementById("status");
-const recordBtn = document.getElementById("recordBtn");
-const saveBtn = document.getElementById("saveBtn");
 
-// 가이드 텍스트
 if (type === "breath") {
   title.innerText = "숨소리";
-  guide.innerText = "숨을 천천히 내쉬며 녹음하세요";
+  guide.innerText = "숨을 내쉬며 녹음하세요";
 }
 else if (type === "ambient") {
   title.innerText = "환경 소리";
-  guide.innerText = "지금 주변의 소리를 녹음하세요";
+  guide.innerText = "주변 소리를 녹음하세요";
 }
 else if (type === "personal") {
-  title.innerText = "마음에 드는 소리";
-  guide.innerText = "지금 떠오르는 소리를 녹음하세요";
+  title.innerText = "좋아하는 소리";
+  guide.innerText = "마음에 드는 소리를 녹음하세요";
 }
 else {
   title.innerText = "레이어";
-  guide.innerText = "세 개의 소리를 들어보세요";
+  guide.innerText = "세 개의 소리를 재생합니다";
 }
 
 let mediaRecorder;
 let chunks = [];
-let isRecording = false;
 let recordedBlob = null;
+let recording = false;
 
-// record 버튼 동작 (토글)
-recordBtn.onclick = async function () {
+// 녹음 버튼
+document.getElementById("recordBtn").onclick = async () => {
 
-  if (!isRecording) {
-    // 녹음 시작
+  if (!recording) {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     mediaRecorder = new MediaRecorder(stream);
     chunks = [];
 
-    mediaRecorder.ondataavailable = e => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
 
     mediaRecorder.onstop = () => {
       recordedBlob = new Blob(chunks);
-      status.innerText = "녹음 완료 → 이름 입력 후 '남기기'를 눌러주세요";
+      status.innerText = "녹음 완료 → 저장하세요";
     };
 
     mediaRecorder.start();
-    isRecording = true;
+    recording = true;
 
-    recordBtn.innerText = "■ stop";
-    status.innerText = "녹음 중... (최대 15초)";
+    status.innerText = "녹음 중...";
+    document.getElementById("recordBtn").innerText = "■ stop";
 
-    // 15초 자동 종료
     setTimeout(() => {
       if (mediaRecorder.state === "recording") {
         mediaRecorder.stop();
-        recordBtn.innerText = "● record";
-        isRecording = false;
+        recording = false;
+        document.getElementById("recordBtn").innerText = "● record";
       }
-    }, 15000);
+    }, 10000);
 
   } else {
-    // 녹음 중지
     mediaRecorder.stop();
-    recordBtn.innerText = "● record";
-    isRecording = false;
+    recording = false;
+    document.getElementById("recordBtn").innerText = "● record";
   }
 };
 
 // 저장
-saveBtn.onclick = function () {
+document.getElementById("saveBtn").onclick = () => {
 
   if (!recordedBlob) {
-    alert("먼저 녹음을 해주세요");
+    alert("녹음 먼저");
     return;
   }
 
-  const reader = new FileReader();
+  const tx = db.transaction("audio", "readwrite");
+  const store = tx.objectStore("audio");
 
-  reader.onloadend = function () {
-    localStorage.setItem(type, reader.result);
+  store.put(recordedBlob, type);
 
-    status.innerText = "저장 완료";
-  };
-
-  reader.readAsDataURL(recordedBlob);
+  status.innerText = "저장 완료";
 };
 
 // 재생
-function play() {
+async function play() {
+
   const types = ["breath", "ambient", "personal"];
   let count = 0;
 
   for (let t of types) {
-    const data = localStorage.getItem(t);
-    if (!data) continue;
 
-    const audio = new Audio(data);
+    const tx = db.transaction("audio", "readonly");
+    const store = tx.objectStore("audio");
 
-    if (t === "breath") audio.volume = 0.4;
-    if (t === "ambient") audio.volume = 0.25;
-    if (t === "personal") audio.volume = 0.2;
+    const req = store.get(t);
 
-    setTimeout(() => {
-      audio.play();
-    }, Math.random() * 2000);
+    await new Promise(resolve => {
+      req.onsuccess = () => {
 
-    count++;
+        if (!req.result) return resolve();
+
+        const url = URL.createObjectURL(req.result);
+        const audio = new Audio(url);
+
+        if (t === "breath") audio.volume = 0.4;
+        if (t === "ambient") audio.volume = 0.25;
+        if (t === "personal") audio.volume = 0.2;
+
+        setTimeout(() => audio.play(), Math.random()*2000);
+
+        count++;
+        resolve();
+      };
+    });
   }
 
   if (count < 3) {
-    alert("세 개의 소리를 모두 기록해주세요");
+    alert("세 개의 소리를 기록해주세요");
   }
 }
 </script>
