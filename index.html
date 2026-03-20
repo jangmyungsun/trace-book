@@ -77,16 +77,34 @@ function save() {
 function play() {
   const types = ["breath", "ambient", "personal"];
 
-  for (let type of types) {
-    const data = JSON.parse(localStorage.getItem(type));
-    if (!data) continue;
+  let played = false;
 
-    const audio = new Audio(data.audio);
+  for (let type of types) {
+    const data = localStorage.getItem(type);
+
+    if (!data) {
+      console.log(type + " 없음");
+      continue;
+    }
+
+    const parsed = JSON.parse(data);
+
+    const audio = new Audio(parsed.audio);
     audio.volume = 0.3;
 
-    setTimeout(() => {
-      audio.play();
-    }, Math.random() * 2000);
+    audio.play()
+      .then(() => {
+        console.log(type + " 재생됨");
+      })
+      .catch(err => {
+        console.log(type + " 재생 실패:", err);
+      });
+
+    played = true;
+  }
+
+  if (!played) {
+    alert("먼저 3개의 소리를 기록해주세요");
   }
 }
 </script>
