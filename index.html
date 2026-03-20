@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>trace</title>
+</head>
+
+<body style="font-family: sans-serif; padding:40px;">
+
+<h3 id="title"></h3>
+
+<button onclick="startRecording()">record</button>
+<button onclick="stopRecording()">stop</button>
+
+<br><br>
+
+<input id="label" placeholder="이름 (선택)" />
+
+<br><br>
+
+<button onclick="save()">남기기</button>
+<button onclick="play()">listen</button>
+
+<script>
+let mediaRecorder;
+let chunks = [];
+let currentType = "";
+
+// URL에서 타입 가져오기 (breath / ambient / personal)
+const urlParams = new URLSearchParams(window.location.search);
+currentType = urlParams.get("type");
+
+// 제목 표시
+document.getElementById("title").innerText = currentType || "layer";
+
+async function startRecording() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(stream);
+
+  chunks = [];
+
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
+  };
+
+  mediaRecorder.start();
+
+  // 🔥 1분 제한
+  setTimeout(() => {
+    if (mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+    }
+  }, 60000);
+}
+
+function stopRecording() {
+  mediaRecorder.stop();
+}
+
+function save() {
+  const blob = new Blob(chunks, { type: "audio/webm" });
+  const label = document.getElementById("label").value;
+
+  const reader = new FileReader();
+  reader.readAsDataURL(blob);
+
+  reader.onloadend = function () {
+    localStorage.setItem(currentType, JSON.stringify({
+      audio: reader.result,
+      label
+    }));
+
+    alert("saved");
+  };
+}
+
+function play() {
+  const types = ["breath", "ambient", "personal"];
+
+  for (let type of types) {
+    const data = JSON.parse(localStorage.getItem(type));
+    if (!data) continue;
+
+    const audio = new Audio(data.audio);
+    audio.volume = 0.3;
+
+    setTimeout(() => {
+      audio.play();
+    }, Math.random() * 2000);
+  }
+}
+</script>
+
+</body>
+</html>
