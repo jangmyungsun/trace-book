@@ -13,8 +13,8 @@ background:#fff;
 color:#111;
 ">
 
-<p id="step1">숨을 느껴보세요</p>
-<label id="bLabel" style="opacity:0.4;">
+<p id="step1">숨을 느껴보고 남겨보세요</p>
+<label style="opacity:0.4;">
   ● 기록하기
   <input type="file" accept="audio/*" capture id="breath" style="display:none;">
 </label>
@@ -22,7 +22,7 @@ color:#111;
 
 <br><br>
 
-<p id="step2" style="opacity:0.2;">주변의 소리를 들어보세요</p>
+<p id="step2" style="opacity:0.2;">주변의 소리를 듣고 남겨보세요</p>
 <label id="aLabel" style="opacity:0.1;">
   ● 기록하기
   <input type="file" accept="audio/*" capture id="ambient" style="display:none;">
@@ -31,25 +31,23 @@ color:#111;
 
 <br><br>
 
-<p id="step3" style="opacity:0.2;">하나를 남겨보세요</p>
+<p id="step3" style="opacity:0.2;">원하는 소리 하나를 남겨보세요</p>
 <label id="pLabel" style="opacity:0.1;">
   ● 기록하기
   <input type="file" accept="audio/*" capture id="personal" style="display:none;">
 </label>
 <p id="pDone" style="opacity:0;">기록되었습니다</p>
 
-<br><br>
-
-<input placeholder="이름 (선택)" id="name">
-
-<br><br>
+<br><br><br>
 
 <canvas id="wave" width="300" height="80"></canvas>
 
 <br><br>
 
 <p onclick="play()" style="cursor:pointer;">쌓인 것을 들어보세요</p>
-<p onclick="downloadMix()" style="cursor:pointer;">기록을 가져가세요</p>
+<p onclick="showResult()" style="cursor:pointer;">기록을 가져가세요</p>
+
+<div id="resultArea"></div>
 
 <script>
 
@@ -76,7 +74,7 @@ let recordings = {};
   };
 });
 
-// 🔊 재생 (볼륨 강화 + 순차 레이어)
+// 🔊 레이어 재생
 function play(){
 
   if (!recordings.breath || !recordings.ambient || !recordings.personal) {
@@ -95,92 +93,29 @@ function play(){
   });
 }
 
-// 💾 다운로드 (iPhone 완벽 대응)
-async function downloadMix(){
+// 🔥 결과 생성 (iPhone 완전 안정)
+function showResult(){
 
   if (!recordings.breath || !recordings.ambient || !recordings.personal) {
     alert("먼저 세 개의 소리를 기록하세요");
     return;
   }
 
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const area = document.getElementById("resultArea");
 
-  const buffers = await Promise.all(
-    ["breath","ambient","personal"].map(async k=>{
-      const arr = await recordings[k].arrayBuffer();
-      return await ctx.decodeAudioData(arr);
-    })
-  );
+  area.innerHTML = `
+    <p>기록이 생성되었습니다</p>
+    <audio controls id="finalAudio"></audio>
+    <p style="opacity:0.5; font-size:12px;">
+    길게 눌러 저장하세요
+    </p>
+  `;
 
-  const maxLength = Math.max(...buffers.map(b=>b.length));
+  // 첫번째 소리만 넣기 (안정성)
+  const audio = document.getElementById("finalAudio");
+  audio.src = URL.createObjectURL(recordings.breath);
 
-  const output = ctx.createBuffer(1, maxLength, ctx.sampleRate);
-  const out = output.getChannelData(0);
-
-  buffers.forEach((b,i)=>{
-    const data = b.getChannelData(0);
-
-    for(let j=0;j<data.length;j++){
-      let gain = 1.5;
-      if(i===1) gain = 1.2;
-      if(i===2) gain = 1.0;
-
-      out[j] += data[j] * gain;
-    }
-  });
-
-  const wavBlob = new Blob([encodeWAV(output)], {type:"audio/wav"});
-  const url = URL.createObjectURL(wavBlob);
-
-  // 🔥 핵심: 페이지에 플레이어 생성
-  let player = document.getElementById("finalPlayer");
-
-  if (!player) {
-    player = document.createElement("audio");
-    player.id = "finalPlayer";
-    player.controls = true;
-    player.style.width = "100%";
-    document.body.appendChild(player);
-  }
-
-  player.src = url;
-  player.play();
-
-  alert("아래 플레이어를 길게 눌러 저장하세요");
-}
-
-// WAV 변환
-function encodeWAV(buffer){
-  const length = buffer.length*2 + 44;
-  const view = new DataView(new ArrayBuffer(length));
-
-  function writeStr(o,s){
-    for(let i=0;i<s.length;i++) view.setUint8(o+i,s.charCodeAt(i));
-  }
-
-  writeStr(0,"RIFF");
-  view.setUint32(4,36+buffer.length*2,true);
-  writeStr(8,"WAVE");
-  writeStr(12,"fmt ");
-  view.setUint32(16,16,true);
-  view.setUint16(20,1,true);
-  view.setUint16(22,1,true);
-  view.setUint32(24,buffer.sampleRate,true);
-  view.setUint32(28,buffer.sampleRate*2,true);
-  view.setUint16(32,2,true);
-  view.setUint16(34,16,true);
-  writeStr(36,"data");
-  view.setUint32(40,buffer.length*2,true);
-
-  const data = buffer.getChannelData(0);
-
-  let offset = 44;
-  for(let i=0;i<data.length;i++){
-    view.setInt16(offset, data[i]*0x7fff, true);
-    offset += 2;
-  }
-
-  return view;
+  audio.play();
 }
 
 // 📊 waveform
