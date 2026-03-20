@@ -5,33 +5,42 @@
 <title>trace</title>
 </head>
 
-<body style="font-family:sans-serif; padding:40px; line-height:1.8;">
+<body style="
+font-family:sans-serif;
+padding:40px;
+line-height:2;
+background:#fff;
+color:#111;
+">
 
-<p>숨을 느껴보세요</p>
-<label style="opacity:0.6;">
+<p id="step1">숨을 느껴보세요</p>
+<label id="bLabel" style="opacity:0.4;">
   ● 기록하기
   <input type="file" accept="audio/*" capture id="breath" style="display:none;">
 </label>
+<p id="bDone" style="opacity:0; font-size:12px;">기록되었습니다</p>
 
-<br><br><br>
+<br><br>
 
-<p>주변의 소리를 들어보세요</p>
-<label style="opacity:0.6;">
+<p id="step2" style="opacity:0.2;">주변의 소리를 들어보세요</p>
+<label id="aLabel" style="opacity:0.1;">
   ● 기록하기
   <input type="file" accept="audio/*" capture id="ambient" style="display:none;">
 </label>
+<p id="aDone" style="opacity:0; font-size:12px;">기록되었습니다</p>
 
-<br><br><br>
+<br><br>
 
-<p>하나를 남겨보세요</p>
-<label style="opacity:0.6;">
+<p id="step3" style="opacity:0.2;">하나를 남겨보세요</p>
+<label id="pLabel" style="opacity:0.1;">
   ● 기록하기
   <input type="file" accept="audio/*" capture id="personal" style="display:none;">
 </label>
+<p id="pDone" style="opacity:0; font-size:12px;">기록되었습니다</p>
 
-<br><br><br><br>
+<br><br><br>
 
-<p onclick="play()" style="cursor:pointer;">
+<p id="playText" onclick="play()" style="opacity:0.2;">
 쌓인 것을 들어보세요
 </p>
 
@@ -39,33 +48,51 @@
 
 let recordings = {};
 
+// 1️⃣ 숨
 document.getElementById("breath").onchange = e => {
   recordings.breath = e.target.files[0];
+
+  document.getElementById("bDone").style.opacity = 1;
+
+  document.getElementById("step2").style.opacity = 1;
+  document.getElementById("aLabel").style.opacity = 0.6;
 };
 
+// 2️⃣ 환경
 document.getElementById("ambient").onchange = e => {
   recordings.ambient = e.target.files[0];
+
+  document.getElementById("aDone").style.opacity = 1;
+
+  document.getElementById("step3").style.opacity = 1;
+  document.getElementById("pLabel").style.opacity = 0.6;
 };
 
+// 3️⃣ 개인
 document.getElementById("personal").onchange = e => {
   recordings.personal = e.target.files[0];
+
+  document.getElementById("pDone").style.opacity = 1;
+
+  document.getElementById("playText").style.opacity = 1;
 };
 
 function play() {
 
   if (!recordings.breath || !recordings.ambient || !recordings.personal) {
-    alert("세 개의 흔적이 필요합니다");
+    alert("아직 모든 흔적이 모이지 않았습니다");
     return;
   }
 
-  const files = ["breath", "ambient", "personal"];
+  const files = ["breath","ambient","personal"];
 
   for (let k of files) {
+
     const url = URL.createObjectURL(recordings[k]);
     const audio = new Audio(url);
 
-    if (k === "breath") audio.volume = 0.4;
-    if (k === "ambient") audio.volume = 0.25;
+    if (k === "breath") audio.volume = 0.5;
+    if (k === "ambient") audio.volume = 0.3;
     if (k === "personal") audio.volume = 0.2;
 
     audio.play();
