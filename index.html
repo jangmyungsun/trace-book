@@ -132,21 +132,21 @@ async function downloadMix(){
   const wavBlob = new Blob([encodeWAV(output)], {type:"audio/wav"});
   const url = URL.createObjectURL(wavBlob);
 
-  const win = window.open();
+  // 🔥 핵심: 페이지에 플레이어 생성
+  let player = document.getElementById("finalPlayer");
 
-  const name = document.getElementById("name").value || "trace";
+  if (!player) {
+    player = document.createElement("audio");
+    player.id = "finalPlayer";
+    player.controls = true;
+    player.style.width = "100%";
+    document.body.appendChild(player);
+  }
 
-  win.document.write(`
-    <html>
-    <body style="font-family:sans-serif; padding:30px;">
-      <p>${name}</p>
-      <audio controls autoplay src="${url}"></audio>
-      <p style="opacity:0.5; font-size:12px;">
-      길게 눌러 저장하세요
-      </p>
-    </body>
-    </html>
-  `);
+  player.src = url;
+  player.play();
+
+  alert("아래 플레이어를 길게 눌러 저장하세요");
 }
 
 // WAV 변환
