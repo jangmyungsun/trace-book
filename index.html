@@ -8,83 +8,65 @@
 <body style="font-family:sans-serif; padding:30px;">
 
 <h2>trace</h2>
-<p id="status">1. 숨소리를 녹음하세요</p>
+<p id="status">버튼을 눌러 녹음을 시작하세요</p>
 
-<button onclick="record('breath')">숨 record</button>
-<button onclick="record('ambient')">환경 record</button>
-<button onclick="record('personal')">소리 record</button>
-
-<br><br>
-
+<button onclick="startRecording()">record</button>
 <button onclick="play()">listen</button>
 
 <script>
 
 let mediaRecorder;
 let chunks = [];
-let recordings = {};
+let audioBlob = null;
 
-async function record(type) {
+// 녹음
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    chunks = [];
 
-  mediaRecorder = new MediaRecorder(stream);
-  chunks = [];
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
 
-  mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      audioBlob = new Blob(chunks);
+      document.getElementById("status").innerText = "녹음 완료";
+    };
 
-  let timeLeft = 8;
+    mediaRecorder.start();
 
-  const status = document.getElementById("status");
+    document.getElementById("status").innerText = "녹음 중... (5초)";
 
-  mediaRecorder.onstop = () => {
-    recordings[type] = new Blob(chunks);
-    status.innerText = type + " 녹음 완료";
-  };
+    setTimeout(() => {
+      if (mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+      }
+    }, 5000);
 
-  mediaRecorder.start();
-
-  status.innerText = type + " 녹음 중... (" + timeLeft + "초)";
-
-  // 🔥 카운트다운 표시
-  const interval = setInterval(() => {
-    timeLeft--;
-    status.innerText = type + " 녹음 중... (" + timeLeft + "초)";
-
-    if (timeLeft <= 0) {
-      clearInterval(interval);
-    }
-  }, 1000);
-
-  // 🔥 자동 종료
-  setTimeout(() => {
-    if (mediaRecorder.state === "recording") {
-      mediaRecorder.stop();
-      clearInterval(interval);
-    }
-  }, 8000);
+  } catch (err) {
+    alert("마이크 권한을 허용해주세요");
+    console.log(err);
+  }
 }
 
+// 재생
 function play() {
 
-  let keys = Object.keys(recordings);
-
-  if (keys.length < 3) {
-    alert("3개의 소리를 녹음하세요");
+  if (!audioBlob) {
+    alert("먼저 녹음하세요");
     return;
   }
 
-  for (let k of keys) {
+  const url = URL.createObjectURL(audioBlob);
+  const audio = new Audio(url);
 
-    const url = URL.createObjectURL(recordings[k]);
-    const audio = new Audio(url);
-
-    if (k === "breath") audio.volume = 0.4;
-    if (k === "ambient") audio.volume = 0.25;
-    if (k === "personal") audio.volume = 0.2;
-
-    // 🔥 바로 재생 (중요)
-    audio.play().catch(e => console.log(e));
-  }
+  audio.play().catch(e => console.log(e));
 }
-  
+
+</script>
+
+</body>
+</html>
