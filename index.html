@@ -59,6 +59,7 @@ function play() {
   }
 
   for (let k of keys) {
+
     const url = URL.createObjectURL(recordings[k]);
     const audio = new Audio(url);
 
@@ -66,11 +67,8 @@ function play() {
     if (k === "ambient") audio.volume = 0.25;
     if (k === "personal") audio.volume = 0.2;
 
-    setTimeout(() => audio.play(), Math.random()*2000);
+    // 🔥 바로 재생 (중요)
+    audio.play().catch(e => console.log(e));
   }
 }
-
-</script>
-
-</body>
-</html>
+  
