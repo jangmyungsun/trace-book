@@ -55,83 +55,104 @@ color:#111;
 
 let recordings = {};
 
-// 입력
+// 입력 처리
 ["breath","ambient","personal"].forEach(type=>{
   document.getElementById(type).onchange = e=>{
     recordings[type] = e.target.files[0];
 
-    document.getElementById(type[0]+"Done").style.opacity=1;
+    document.getElementById(type[0]+"Done").style.opacity = 1;
 
     if(type==="breath"){
-      step2.style.opacity=1; aLabel.style.opacity=0.6;
-    }
-    if(type==="ambient"){
-      step3.style.opacity=1; pLabel.style.opacity=0.6;
+      step2.style.opacity = 1;
+      aLabel.style.opacity = 0.6;
     }
 
-    drawWave(recordings[type]); // waveform 표시
+    if(type==="ambient"){
+      step3.style.opacity = 1;
+      pLabel.style.opacity = 0.6;
+    }
+
+    drawWave(recordings[type]);
   };
 });
 
-// 🔊 재생 (볼륨 증가)
+// 🔊 재생 (볼륨 강화 + 순차 레이어)
 function play(){
-  const files=["breath","ambient","personal"];
 
-  files.forEach((k,i)=>{
-    const audio=new Audio(URL.createObjectURL(recordings[k]));
+  if (!recordings.breath || !recordings.ambient || !recordings.personal) {
+    alert("아직 모든 흔적이 모이지 않았습니다");
+    return;
+  }
 
-    audio.volume=1; // 🔥 최대 볼륨
+  ["breath","ambient","personal"].forEach((k,i)=>{
+    const audio = new Audio(URL.createObjectURL(recordings[k]));
+
+    audio.volume = 1;
 
     setTimeout(()=>{
       audio.play();
-    },i*1000);
+    }, i * 800);
   });
 }
 
-// 💾 다운로드 (iPhone 대응)
+// 💾 다운로드 (iPhone 완벽 대응)
 async function downloadMix(){
 
-  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  if (!recordings.breath || !recordings.ambient || !recordings.personal) {
+    alert("먼저 세 개의 소리를 기록하세요");
+    return;
+  }
 
-  const buffers=await Promise.all(
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+  const buffers = await Promise.all(
     ["breath","ambient","personal"].map(async k=>{
-      const arr=await recordings[k].arrayBuffer();
+      const arr = await recordings[k].arrayBuffer();
       return await ctx.decodeAudioData(arr);
     })
   );
 
-  const maxLength=Math.max(...buffers.map(b=>b.length));
+  const maxLength = Math.max(...buffers.map(b=>b.length));
 
-  const output=ctx.createBuffer(1,maxLength,ctx.sampleRate);
-  const out=output.getChannelData(0);
+  const output = ctx.createBuffer(1, maxLength, ctx.sampleRate);
+  const out = output.getChannelData(0);
 
   buffers.forEach((b,i)=>{
-    const data=b.getChannelData(0);
+    const data = b.getChannelData(0);
 
     for(let j=0;j<data.length;j++){
-      let gain=1.2; // 🔥 볼륨 부스트
+      let gain = 1.5;
+      if(i===1) gain = 1.2;
+      if(i===2) gain = 1.0;
 
-      if(i===0) gain=1.5;
-      if(i===1) gain=1.2;
-      if(i===2) gain=1.0;
-
-      out[j]+=data[j]*gain;
+      out[j] += data[j] * gain;
     }
   });
 
-  const blob=new Blob([encodeWAV(output)],{type:"audio/wav"});
+  const wavBlob = new Blob([encodeWAV(output)], {type:"audio/wav"});
+  const url = URL.createObjectURL(wavBlob);
 
-  const url=URL.createObjectURL(blob);
+  const win = window.open();
 
-  // 🔥 iPhone 대응 (새 창)
-  window.open(url);
+  const name = document.getElementById("name").value || "trace";
 
+  win.document.write(`
+    <html>
+    <body style="font-family:sans-serif; padding:30px;">
+      <p>${name}</p>
+      <audio controls autoplay src="${url}"></audio>
+      <p style="opacity:0.5; font-size:12px;">
+      길게 눌러 저장하세요
+      </p>
+    </body>
+    </html>
+  `);
 }
 
 // WAV 변환
 function encodeWAV(buffer){
-  const length=buffer.length*2+44;
-  const view=new DataView(new ArrayBuffer(length));
+  const length = buffer.length*2 + 44;
+  const view = new DataView(new ArrayBuffer(length));
 
   function writeStr(o,s){
     for(let i=0;i<s.length;i++) view.setUint8(o+i,s.charCodeAt(i));
@@ -151,12 +172,12 @@ function encodeWAV(buffer){
   writeStr(36,"data");
   view.setUint32(40,buffer.length*2,true);
 
-  const data=buffer.getChannelData(0);
+  const data = buffer.getChannelData(0);
 
-  let offset=44;
+  let offset = 44;
   for(let i=0;i<data.length;i++){
-    view.setInt16(offset,data[i]*0x7fff,true);
-    offset+=2;
+    view.setInt16(offset, data[i]*0x7fff, true);
+    offset += 2;
   }
 
   return view;
@@ -164,19 +185,21 @@ function encodeWAV(buffer){
 
 // 📊 waveform
 async function drawWave(file){
-  const ctx=document.getElementById("wave").getContext("2d");
 
-  const audioCtx=new AudioContext();
-  const arr=await file.arrayBuffer();
-  const buffer=await audioCtx.decodeAudioData(arr);
+  const canvas = document.getElementById("wave");
+  const ctx = canvas.getContext("2d");
 
-  const data=buffer.getChannelData(0);
+  const audioCtx = new AudioContext();
+  const arr = await file.arrayBuffer();
+  const buffer = await audioCtx.decodeAudioData(arr);
+
+  const data = buffer.getChannelData(0);
 
   ctx.clearRect(0,0,300,80);
 
   for(let i=0;i<300;i++){
-    const index=Math.floor(i/data.length*data.length);
-    const val=data[index]*40;
+    const index = Math.floor(i/data.length*data.length);
+    const val = data[index]*40;
     ctx.fillRect(i,40,val,1);
   }
 }
