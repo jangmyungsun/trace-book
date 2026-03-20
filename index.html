@@ -5,22 +5,35 @@
 <title>trace</title>
 </head>
 
-<body style="font-family:sans-serif; padding:30px;">
+<body style="font-family:sans-serif; padding:40px; line-height:1.8;">
 
-<h2>trace</h2>
+<p>숨을 느껴보세요</p>
+<label style="opacity:0.6;">
+  ● 기록하기
+  <input type="file" accept="audio/*" capture id="breath" style="display:none;">
+</label>
 
-<p>1. 숨소리</p>
-<input type="file" accept="audio/*" capture id="breath">
+<br><br><br>
 
-<p>2. 환경 소리</p>
-<input type="file" accept="audio/*" capture id="ambient">
+<p>주변의 소리를 들어보세요</p>
+<label style="opacity:0.6;">
+  ● 기록하기
+  <input type="file" accept="audio/*" capture id="ambient" style="display:none;">
+</label>
 
-<p>3. 좋아하는 소리</p>
-<input type="file" accept="audio/*" capture id="personal">
+<br><br><br>
 
-<br><br>
+<p>하나를 남겨보세요</p>
+<label style="opacity:0.6;">
+  ● 기록하기
+  <input type="file" accept="audio/*" capture id="personal" style="display:none;">
+</label>
 
-<button onclick="play()">listen</button>
+<br><br><br><br>
+
+<p onclick="play()" style="cursor:pointer;">
+쌓인 것을 들어보세요
+</p>
 
 <script>
 
@@ -41,7 +54,7 @@ document.getElementById("personal").onchange = e => {
 function play() {
 
   if (!recordings.breath || !recordings.ambient || !recordings.personal) {
-    alert("3개의 소리를 모두 녹음하세요");
+    alert("세 개의 흔적이 필요합니다");
     return;
   }
 
