@@ -18,7 +18,7 @@ color:#111;
   ● 기록하기
   <input type="file" accept="audio/*" capture id="breath" style="display:none;">
 </label>
-<p id="bDone" style="opacity:0; font-size:12px;">기록되었습니다</p>
+<p id="bDone" style="opacity:0;">기록되었습니다</p>
 
 <br><br>
 
@@ -27,7 +27,7 @@ color:#111;
   ● 기록하기
   <input type="file" accept="audio/*" capture id="ambient" style="display:none;">
 </label>
-<p id="aDone" style="opacity:0; font-size:12px;">기록되었습니다</p>
+<p id="aDone" style="opacity:0;">기록되었습니다</p>
 
 <br><br>
 
@@ -36,177 +36,149 @@ color:#111;
   ● 기록하기
   <input type="file" accept="audio/*" capture id="personal" style="display:none;">
 </label>
-<p id="pDone" style="opacity:0; font-size:12px;">기록되었습니다</p>
+<p id="pDone" style="opacity:0;">기록되었습니다</p>
 
-<br><br><br>
+<br><br>
 
-<input placeholder="이름 (선택)" id="name" style="border:none; border-bottom:1px solid #aaa; padding:5px; width:200px;">
+<input placeholder="이름 (선택)" id="name">
 
-<br><br><br>
+<br><br>
 
-<p id="playText" onclick="play()" style="opacity:0.2; cursor:pointer;">
-쌓인 것을 들어보세요
-</p>
+<canvas id="wave" width="300" height="80"></canvas>
 
-<p onclick="downloadMix()" style="opacity:0.2; cursor:pointer;">
-기록을 가져가세요
-</p>
+<br><br>
+
+<p onclick="play()" style="cursor:pointer;">쌓인 것을 들어보세요</p>
+<p onclick="downloadMix()" style="cursor:pointer;">기록을 가져가세요</p>
 
 <script>
 
 let recordings = {};
 
-// 숨
-document.getElementById("breath").onchange = e => {
-  recordings.breath = e.target.files[0];
+// 입력
+["breath","ambient","personal"].forEach(type=>{
+  document.getElementById(type).onchange = e=>{
+    recordings[type] = e.target.files[0];
 
-  document.getElementById("bDone").style.opacity = 1;
+    document.getElementById(type[0]+"Done").style.opacity=1;
 
-  document.getElementById("step2").style.opacity = 1;
-  document.getElementById("aLabel").style.opacity = 0.6;
-};
+    if(type==="breath"){
+      step2.style.opacity=1; aLabel.style.opacity=0.6;
+    }
+    if(type==="ambient"){
+      step3.style.opacity=1; pLabel.style.opacity=0.6;
+    }
 
-// 환경
-document.getElementById("ambient").onchange = e => {
-  recordings.ambient = e.target.files[0];
+    drawWave(recordings[type]); // waveform 표시
+  };
+});
 
-  document.getElementById("aDone").style.opacity = 1;
+// 🔊 재생 (볼륨 증가)
+function play(){
+  const files=["breath","ambient","personal"];
 
-  document.getElementById("step3").style.opacity = 1;
-  document.getElementById("pLabel").style.opacity = 0.6;
-};
+  files.forEach((k,i)=>{
+    const audio=new Audio(URL.createObjectURL(recordings[k]));
 
-// 개인
-document.getElementById("personal").onchange = e => {
-  recordings.personal = e.target.files[0];
+    audio.volume=1; // 🔥 최대 볼륨
 
-  document.getElementById("pDone").style.opacity = 1;
-
-  document.getElementById("playText").style.opacity = 1;
-};
-
-// 🔊 레이어 재생
-function play() {
-
-  if (!recordings.breath || !recordings.ambient || !recordings.personal) {
-    alert("아직 모든 흔적이 모이지 않았습니다");
-    return;
-  }
-
-  const files = ["breath","ambient","personal"];
-
-  files.forEach((k, i) => {
-
-    const url = URL.createObjectURL(recordings[k]);
-    const audio = new Audio(url);
-
-    audio.volume = 0;
-
-    setTimeout(() => {
+    setTimeout(()=>{
       audio.play();
-
-      let vol = 0;
-      const fade = setInterval(() => {
-        vol += 0.02;
-        audio.volume = vol;
-        if (vol >= 0.4) clearInterval(fade);
-      }, 200);
-
-    }, i * 1500);
+    },i*1000);
   });
 }
 
-// 💾 다운로드 (핵심)
-async function downloadMix() {
+// 💾 다운로드 (iPhone 대응)
+async function downloadMix(){
 
-  if (!recordings.breath || !recordings.ambient || !recordings.personal) {
-    alert("먼저 세 개의 소리를 기록하세요");
-    return;
-  }
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
 
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-  async function fileToBuffer(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    return await audioCtx.decodeAudioData(arrayBuffer);
-  }
-
-  const buffers = await Promise.all([
-    fileToBuffer(recordings.breath),
-    fileToBuffer(recordings.ambient),
-    fileToBuffer(recordings.personal)
-  ]);
-
-  const maxLength = Math.max(...buffers.map(b => b.length));
-
-  const output = audioCtx.createBuffer(
-    1,
-    maxLength,
-    audioCtx.sampleRate
+  const buffers=await Promise.all(
+    ["breath","ambient","personal"].map(async k=>{
+      const arr=await recordings[k].arrayBuffer();
+      return await ctx.decodeAudioData(arr);
+    })
   );
 
-  const outputData = output.getChannelData(0);
+  const maxLength=Math.max(...buffers.map(b=>b.length));
 
-  buffers.forEach((buffer, i) => {
-    const data = buffer.getChannelData(0);
+  const output=ctx.createBuffer(1,maxLength,ctx.sampleRate);
+  const out=output.getChannelData(0);
 
-    for (let j = 0; j < data.length; j++) {
+  buffers.forEach((b,i)=>{
+    const data=b.getChannelData(0);
 
-      let volume = 0.3;
-      if (i === 0) volume = 0.5;
-      if (i === 1) volume = 0.3;
-      if (i === 2) volume = 0.2;
+    for(let j=0;j<data.length;j++){
+      let gain=1.2; // 🔥 볼륨 부스트
 
-      outputData[j] += data[j] * volume;
+      if(i===0) gain=1.5;
+      if(i===1) gain=1.2;
+      if(i===2) gain=1.0;
+
+      out[j]+=data[j]*gain;
     }
   });
 
-  function bufferToWav(buffer) {
-    const length = buffer.length * 2 + 44;
-    const bufferArray = new ArrayBuffer(length);
-    const view = new DataView(bufferArray);
+  const blob=new Blob([encodeWAV(output)],{type:"audio/wav"});
 
-    let offset = 0;
+  const url=URL.createObjectURL(blob);
 
-    function writeString(s) {
-      for (let i = 0; i < s.length; i++) {
-        view.setUint8(offset++, s.charCodeAt(i));
-      }
-    }
+  // 🔥 iPhone 대응 (새 창)
+  window.open(url);
 
-    writeString("RIFF");
-    view.setUint32(offset, 36 + buffer.length * 2, true); offset += 4;
-    writeString("WAVE");
-    writeString("fmt ");
-    view.setUint32(offset, 16, true); offset += 4;
-    view.setUint16(offset, 1, true); offset += 2;
-    view.setUint16(offset, 1, true); offset += 2;
-    view.setUint32(offset, buffer.sampleRate, true); offset += 4;
-    view.setUint32(offset, buffer.sampleRate * 2, true); offset += 4;
-    view.setUint16(offset, 2, true); offset += 2;
-    view.setUint16(offset, 16, true); offset += 2;
-    writeString("data");
-    view.setUint32(offset, buffer.length * 2, true); offset += 4;
+}
 
-    const channelData = buffer.getChannelData(0);
+// WAV 변환
+function encodeWAV(buffer){
+  const length=buffer.length*2+44;
+  const view=new DataView(new ArrayBuffer(length));
 
-    for (let i = 0; i < channelData.length; i++, offset += 2) {
-      const s = Math.max(-1, Math.min(1, channelData[i]));
-      view.setInt16(offset, s * 0x7FFF, true);
-    }
-
-    return new Blob([view], { type: "audio/wav" });
+  function writeStr(o,s){
+    for(let i=0;i<s.length;i++) view.setUint8(o+i,s.charCodeAt(i));
   }
 
-  const wavBlob = bufferToWav(output);
+  writeStr(0,"RIFF");
+  view.setUint32(4,36+buffer.length*2,true);
+  writeStr(8,"WAVE");
+  writeStr(12,"fmt ");
+  view.setUint32(16,16,true);
+  view.setUint16(20,1,true);
+  view.setUint16(22,1,true);
+  view.setUint32(24,buffer.sampleRate,true);
+  view.setUint32(28,buffer.sampleRate*2,true);
+  view.setUint16(32,2,true);
+  view.setUint16(34,16,true);
+  writeStr(36,"data");
+  view.setUint32(40,buffer.length*2,true);
 
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(wavBlob);
+  const data=buffer.getChannelData(0);
 
-  const name = document.getElementById("name").value || "trace";
+  let offset=44;
+  for(let i=0;i<data.length;i++){
+    view.setInt16(offset,data[i]*0x7fff,true);
+    offset+=2;
+  }
 
-  link.download = name + ".wav";
-  link.click();
+  return view;
+}
+
+// 📊 waveform
+async function drawWave(file){
+  const ctx=document.getElementById("wave").getContext("2d");
+
+  const audioCtx=new AudioContext();
+  const arr=await file.arrayBuffer();
+  const buffer=await audioCtx.decodeAudioData(arr);
+
+  const data=buffer.getChannelData(0);
+
+  ctx.clearRect(0,0,300,80);
+
+  for(let i=0;i<300;i++){
+    const index=Math.floor(i/data.length*data.length);
+    const val=data[index]*40;
+    ctx.fillRect(i,40,val,1);
+  }
 }
 
 </script>
