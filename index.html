@@ -52,7 +52,8 @@ async function startRecording() {
   }
 }
 
-// 재생
+  let audioElement = null;
+
 function play() {
 
   if (!audioBlob) {
@@ -60,13 +61,20 @@ function play() {
     return;
   }
 
-  const url = URL.createObjectURL(audioBlob);
-  const audio = new Audio(url);
+  // 🔥 이미 만든 audio 재사용
+  if (!audioElement) {
+    const url = URL.createObjectURL(audioBlob);
+    audioElement = new Audio(url);
+  }
 
-  audio.play().catch(e => console.log(e));
-}
+  audioElement.currentTime = 0;
 
-</script>
+  audioElement.play()
+    .then(() => {
+      console.log("재생 성공");
+    })
+    .catch(err => {
+      console.log("재생 실패:", err);
+      alert("소리 재생이 차단되었습니다. 다시 눌러보세요.");
+    });
 
-</body>
-</html>
