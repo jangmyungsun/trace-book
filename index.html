@@ -5,11 +5,13 @@
   <title>trace</title>
 </head>
 
-<body style="font-family: sans-serif; padding:40px;">
+<body style="font-family: sans-serif; padding:30px;">
 
-<h3 id="title"></h3>
+<h2 id="title"></h2>
 
-<button onclick="startRecording()">record</button>
+<p id="guide" style="opacity:0.6;"></p>
+
+<button id="recordBtn" onclick="startRecording()">● record</button>
 <button onclick="stopRecording()">stop</button>
 
 <br><br>
@@ -22,94 +24,116 @@
 <button onclick="play()">listen</button>
 
 <script>
+// 🔴 모바일 제한
+if (!/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+  document.body.innerHTML = "모바일에서만 사용 가능합니다. QR을 스캔해주세요.";
+}
+
+// 타입 설정
+const urlParams = new URLSearchParams(window.location.search);
+const type = urlParams.get("type");
+
+// 텍스트 설정
+const title = document.getElementById("title");
+const guide = document.getElementById("guide");
+
+if (type === "breath") {
+  title.innerText = "숨소리";
+  guide.innerText = "천천히 숨을 내쉬며 소리를 남겨보세요";
+}
+else if (type === "ambient") {
+  title.innerText = "환경 소리";
+  guide.innerText = "지금 주변의 소리를 들어보세요";
+}
+else if (type === "personal") {
+  title.innerText = "마음에 드는 소리";
+  guide.innerText = "지금 떠오르는 소리를 남겨보세요";
+}
+else {
+  title.innerText = "레이어";
+  guide.innerText = "세 개의 소리가 겹쳐집니다";
+}
+
 let mediaRecorder;
 let chunks = [];
-let currentType = "";
 
-// URL에서 타입 가져오기 (breath / ambient / personal)
-const urlParams = new URLSearchParams(window.location.search);
-currentType = urlParams.get("type");
-
-// 제목 표시
-document.getElementById("title").innerText = currentType || "layer";
-
+// 녹음 시작
 async function startRecording() {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   mediaRecorder = new MediaRecorder(stream);
 
   chunks = [];
 
-  mediaRecorder.ondataavailable = (e) => {
+  mediaRecorder.ondataavailable = e => {
     if (e.data.size > 0) chunks.push(e.data);
   };
 
   mediaRecorder.start();
 
-  // 🔥 1분 제한
+  document.getElementById("recordBtn").innerText = "● recording...";
+
   setTimeout(() => {
     if (mediaRecorder.state === "recording") {
       mediaRecorder.stop();
+      document.getElementById("recordBtn").innerText = "● record";
     }
-  }, 60000);
+  }, 15000);
 }
 
+// 녹음 종료
 function stopRecording() {
-  mediaRecorder.stop();
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+    document.getElementById("recordBtn").innerText = "● record";
+  }
 }
 
+// 저장
 function save() {
-  const blob = new Blob(chunks, { type: "audio/webm" });
-  const label = document.getElementById("label").value;
-
-  const reader = new FileReader();
-  reader.readAsDataURL(blob);
-
-  reader.onloadend = function () {
-    localStorage.setItem(currentType, JSON.stringify({
-      audio: reader.result,
-      label
-    }));
-
-    alert("saved");
-  };
-}
-
-function play() {
-  const types = ["breath", "ambient", "personal"];
-
-  let played = false;
-
-  for (let type of types) {
-    const data = localStorage.getItem(type);
-
-    if (!data) {
-      console.log(type + " 없음");
-      continue;
-    }
-
-    const parsed = JSON.parse(data);
-
-    const audio = new Audio(parsed.audio);
-    audio.volume = 0.3;
-
-    audio.play()
-      .then(() => {
-        console.log(type + " 재생됨");
-      })
-      .catch(err => {
-        console.log(type + " 재생 실패:", err);
-      });
-
-    played = true;
+  if (chunks.length === 0) {
+    alert("녹음을 먼저 해주세요");
+    return;
   }
 
-  if (!played) {
-    alert("먼저 3개의 소리를 기록해주세요");
+  const blob = new Blob(chunks);
+
+  const reader = new FileReader();
+  reader.onloadend = function () {
+    localStorage.setItem(type, reader.result);
+    alert(type + " 저장됨");
+  };
+
+  reader.readAsDataURL(blob);
+}
+
+// 재생
+function play() {
+  const types = ["breath", "ambient", "personal"];
+  let count = 0;
+
+  for (let t of types) {
+    const data = localStorage.getItem(t);
+    if (!data) continue;
+
+    const audio = new Audio(data);
+
+    // 레이어 볼륨 다르게
+    if (t === "breath") audio.volume = 0.4;
+    if (t === "ambient") audio.volume = 0.25;
+    if (t === "personal") audio.volume = 0.2;
+
+    setTimeout(() => {
+      audio.play();
+    }, Math.random() * 2000);
+
+    count++;
+  }
+
+  if (count < 3) {
+    alert("세 개의 소리를 모두 기록해주세요");
   }
 }
 </script>
 
 </body>
 </html>
-
-<!-- update -->
