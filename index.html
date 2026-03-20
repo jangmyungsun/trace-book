@@ -8,73 +8,58 @@
 <body style="font-family:sans-serif; padding:30px;">
 
 <h2>trace</h2>
-<p id="status">버튼을 눌러 녹음을 시작하세요</p>
 
-<button onclick="startRecording()">record</button>
+<p>1. 숨소리</p>
+<input type="file" accept="audio/*" capture id="breath">
+
+<p>2. 환경 소리</p>
+<input type="file" accept="audio/*" capture id="ambient">
+
+<p>3. 좋아하는 소리</p>
+<input type="file" accept="audio/*" capture id="personal">
+
+<br><br>
+
 <button onclick="play()">listen</button>
 
 <script>
 
-let mediaRecorder;
-let chunks = [];
-let audioBlob = null;
+let recordings = {};
 
-// 녹음
-async function startRecording() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+document.getElementById("breath").onchange = e => {
+  recordings.breath = e.target.files[0];
+};
 
-    mediaRecorder = new MediaRecorder(stream);
-    chunks = [];
+document.getElementById("ambient").onchange = e => {
+  recordings.ambient = e.target.files[0];
+};
 
-    mediaRecorder.ondataavailable = e => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
-
-    mediaRecorder.onstop = () => {
-      audioBlob = new Blob(chunks);
-      document.getElementById("status").innerText = "녹음 완료";
-    };
-
-    mediaRecorder.start();
-
-    document.getElementById("status").innerText = "녹음 중... (5초)";
-
-    setTimeout(() => {
-      if (mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-      }
-    }, 5000);
-
-  } catch (err) {
-    alert("마이크 권한을 허용해주세요");
-    console.log(err);
-  }
-}
-
-  let audioElement = null;
+document.getElementById("personal").onchange = e => {
+  recordings.personal = e.target.files[0];
+};
 
 function play() {
 
-  if (!audioBlob) {
-    alert("먼저 녹음하세요");
+  if (!recordings.breath || !recordings.ambient || !recordings.personal) {
+    alert("3개의 소리를 모두 녹음하세요");
     return;
   }
 
-  // 🔥 이미 만든 audio 재사용
-  if (!audioElement) {
-    const url = URL.createObjectURL(audioBlob);
-    audioElement = new Audio(url);
+  const files = ["breath", "ambient", "personal"];
+
+  for (let k of files) {
+    const url = URL.createObjectURL(recordings[k]);
+    const audio = new Audio(url);
+
+    if (k === "breath") audio.volume = 0.4;
+    if (k === "ambient") audio.volume = 0.25;
+    if (k === "personal") audio.volume = 0.2;
+
+    audio.play();
   }
+}
 
-  audioElement.currentTime = 0;
+</script>
 
-  audioElement.play()
-    .then(() => {
-      console.log("재생 성공");
-    })
-    .catch(err => {
-      console.log("재생 실패:", err);
-      alert("소리 재생이 차단되었습니다. 다시 눌러보세요.");
-    });
-
+</body>
+</html>
